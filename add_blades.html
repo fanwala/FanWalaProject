@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Blade Voucher Entry</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body { margin:0; font-family:Arial; }
+
+.sidebar{
+width:260px;
+height:100vh;
+background:#b3e5fc;
+position:fixed;
+left:0;
+top:0;
+padding-top:20px;
+}
+
+.menu-item{
+padding:12px 20px;
+cursor:pointer;
+font-weight:bold;
+}
+
+.menu-item:hover{
+background:#81d4fa;
+}
+
+.main{
+margin-left:260px;
+padding:30px;
+}
+
+input,select{
+width:100%;
+padding:6px;
+box-sizing:border-box;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:15px;
+}
+
+th,td{
+border:1px solid #ccc;
+padding:6px;
+text-align:center;
+}
+
+th{background:#e0e0e0;}
+
+.total-row{
+font-weight:bold;
+background:#f5f5f5;
+}
+
+button{
+margin-top:15px;
+padding:8px 15px;
+cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+<div class="menu-item">ORDERS</div>
+<div class="menu-item" onclick="location.href='add_blades.html'">Add Blades</div>
+<div class="menu-item" onclick="location.href='blade_packing.html'">Blade Packing</div>
+</div>
+
+<div class="main">
+
+<h2>BLADE VOUCHER ENTRY</h2>
+
+<form id="bladeForm">
+
+<div style="display:flex;gap:20px">
+
+<div style="flex:1">
+<label>Received Date</label>
+<input type="date" id="received_date">
+</div>
+
+<div style="flex:1">
+<label>Delivery Date</label>
+<input type="date" id="delivery_date">
+</div>
+
+</div>
+
+<br>
+
+<label>Party Name</label>
+<select id="party_name"></select>
+
+<table id="itemsTable">
+
+<thead>
+<tr>
+<th>MODEL</th>
+<th>PL/DX</th>
+<th>LQ/PC</th>
+<th>COLOURS</th>
+<th>QTY</th>
+<th>UNITS</th>
+<th>BOX</th>
+<th>STC</th>
+<th>TRIMS</th>
+</tr>
+</thead>
+
+<tbody id="itemsBody">
+
+<tr class="item-row">
+
+<td>
+<select class="model_name"></select>
+</td>
+
+<td>
+<select class="pl_dx">
+<option>PL</option>
+<option>DX</option>
+</select>
+</td>
+
+<td>
+<select class="lq_pc">
+<option>LQ</option>
+<option>PC</option>
+</select>
+</td>
+
+<td>
+<input class="colours">
+</td>
+
+<td>
+<input type="number" class="qty">
+</td>
+
+<td>
+<select class="units">
+<option>Nos</option>
+<option>Sets</option>
+</select>
+</td>
+
+<td>
+<select class="box"></select>
+</td>
+
+<td>
+<select class="stc"></select>
+</td>
+
+<td>
+<select class="trims"></select>
+</td>
+
+</tr>
+
+</tbody>
+
+<tfoot>
+
+<tr class="total-row">
+<td colspan="4">Total</td>
+<td id="totalQty">0</td>
+<td id="totalUnits">Nos</td>
+<td colspan="3"></td>
+</tr>
+
+</tfoot>
+
+</table>
+
+<button type="submit">Save</button>
+
+</form>
+
+</div>
+
+<script>
+
+/* TOTAL CALCULATION */
+
+function calculateTotal(){
+
+let total=0;
+let unit="Nos";
+
+document.querySelectorAll(".item-row").forEach((row,index)=>{
+
+const qty=row.querySelector(".qty").value;
+const units=row.querySelector(".units").value;
+
+total+=Number(qty)||0;
+
+if(index===0) unit=units;
+
+});
+
+document.getElementById("totalQty").innerText=total;
+document.getElementById("totalUnits").innerText=unit;
+
+}
+
+/* AUTO ROW */
+
+function attachEvents(){
+
+document.querySelectorAll(".qty").forEach((input,index,arr)=>{
+
+input.oninput=function(){
+
+calculateTotal();
+
+if(index===arr.length-1 && input.value!=""){
+addRow();
+}
+
+};
+
+});
+
+}
+
+/* ADD ROW */
+
+function addRow(){
+
+const tbody=document.getElementById("itemsBody");
+const firstRow=document.querySelector(".item-row");
+
+const newRow=firstRow.cloneNode(true);
+
+newRow.querySelectorAll("input").forEach(i=>i.value="");
+
+tbody.appendChild(newRow);
+
+attachEvents();
+
+}
+
+/* LOAD PARTY */
+
+fetch('/api/blade_parties')
+.then(res=>res.json())
+.then(data=>{
+
+const select=document.getElementById("party_name");
+
+select.innerHTML="<option value=''>Select Party</option>";
+
+data.forEach(p=>{
+select.innerHTML+=`<option value="${p.party_name}">${p.party_name}</option>`;
+});
+
+});
+
+/* LOAD MODELS */
+
+fetch('/api/blade_models')
+.then(res=>res.json())
+.then(data=>{
+
+const select=document.querySelector(".model_name");
+
+select.innerHTML="<option value=''>Select Model</option>";
+
+data.forEach(m=>{
+select.innerHTML+=`<option value="${m.model_name}">${m.model_name}</option>`;
+});
+
+});
+
+/* LOAD BOX */
+
+fetch('/api/blade_boxes')
+.then(res=>res.json())
+.then(data=>{
+
+const select=document.querySelector(".box");
+
+select.innerHTML="<option>Select</option>";
+
+data.forEach(b=>{
+select.innerHTML+=`<option value="${b.box_name}">${b.box_name}</option>`;
+});
+
+});
+
+/* LOAD STC */
+
+fetch('/api/blade_stc')
+.then(res=>res.json())
+.then(data=>{
+
+const select=document.querySelector(".stc");
+
+select.innerHTML="<option>Select</option>";
+
+data.forEach(s=>{
+select.innerHTML+=`<option value="${s.stc_name}">${s.stc_name}</option>`;
+});
+
+});
+
+/* LOAD TRIMS */
+
+fetch('/api/blade_trims')
+.then(res=>res.json())
+.then(data=>{
+
+const select=document.querySelector(".trims");
+
+select.innerHTML="<option>Select</option>";
+
+data.forEach(t=>{
+select.innerHTML+=`<option value="${t.trims_name}">${t.trims_name}</option>`;
+});
+
+});
+
+attachEvents();
+
+/* SAVE */
+
+document.getElementById("bladeForm").addEventListener("submit",function(e){
+
+e.preventDefault();
+
+const items=[];
+
+document.querySelectorAll(".item-row").forEach(row=>{
+
+const model=row.querySelector(".model_name").value;
+const qty=row.querySelector(".qty").value;
+
+if(model && qty>0){
+
+items.push({
+
+model_name:model,
+pl_dx:row.querySelector(".pl_dx").value,
+lq_pc:row.querySelector(".lq_pc").value,
+colours:row.querySelector(".colours").value,
+qty:qty,
+units:row.querySelector(".units").value,
+box:row.querySelector(".box").value,
+stc:row.querySelector(".stc").value,
+trims:row.querySelector(".trims").value
+
+});
+
+}
+
+});
+
+const data={
+
+party_name:document.getElementById("party_name").value,
+received_date:document.getElementById("received_date").value,
+delivery_date:document.getElementById("delivery_date").value,
+total_qty:document.getElementById("totalQty").innerText,
+total_units:document.getElementById("totalUnits").innerText,
+items:items
+
+};
+
+fetch('/save_blade',{
+
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify(data)
+
+})
+.then(res=>res.json())
+.then(response=>{
+
+alert(response.message);
+location.reload();
+
+});
+
+});
+
+</script>
+
+</body>
+</html>

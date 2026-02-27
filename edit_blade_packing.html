@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Edit Blade Packing</title>
+
+<style>
+body{font-family:Arial;background:#f4f6f9;padding:20px}
+h2{margin-bottom:20px}
+
+.form-row{
+margin-bottom:12px;
+display:flex;
+gap:10px;
+}
+
+input,select{
+padding:6px;
+border:1px solid #ccc;
+border-radius:5px;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:15px;
+background:#fff;
+}
+
+th,td{
+border:1px solid #ccc;
+padding:6px;
+text-align:center;
+}
+
+th{background:#eee}
+
+.btn{
+padding:8px 14px;
+border:none;
+border-radius:6px;
+cursor:pointer;
+color:#fff;
+margin-top:15px;
+margin-right:10px;
+}
+
+.btn-save{background:#198754}
+.btn-back{background:#6c757d}
+</style>
+</head>
+<body>
+
+<h2>Edit Blade Packing Voucher</h2>
+
+<div class="form-row">
+<label>Party Name:</label>
+<input type="text" id="party_name">
+</div>
+
+<div class="form-row">
+<label>Received Date:</label>
+<input type="date" id="received_date">
+
+<label>Delivery Date:</label>
+<input type="date" id="delivery_date">
+</div>
+
+<table>
+<thead>
+<tr>
+<th>MODEL</th>
+<th>PL/DX</th>
+<th>LQ/PC</th>
+<th>COLOURS</th>
+<th>QTY</th>
+<th>UNITS</th>
+<th>BOX</th>
+<th>STC</th>
+<th>TRIMS</th>
+</tr>
+</thead>
+<tbody id="itemBody"></tbody>
+</table>
+
+<button class="btn btn-save" onclick="updateVoucher()">Update</button>
+<button class="btn btn-back" onclick="goBack()">Back</button>
+
+<script>
+
+const params = new URLSearchParams(window.location.search);
+const voucherNo = params.get("voucher");
+
+let orderId = null;
+
+fetch(`/api/blade_voucher/${voucherNo}`)
+.then(res=>res.json())
+.then(data=>{
+
+if(!data.length){
+alert("Voucher not found");
+return;
+}
+
+orderId = data[0].id;
+
+document.getElementById("party_name").value = data[0].party_name;
+document.getElementById("received_date").value =
+new Date(data[0].received_date).toISOString().split('T')[0];
+
+document.getElementById("delivery_date").value =
+new Date(data[0].delivery_date).toISOString().split('T')[0];
+
+let tbody=document.getElementById("itemBody");
+
+data.forEach(row=>{
+let tr=document.createElement("tr");
+
+tr.innerHTML=`
+<td><input value="${row.model_name}"></td>
+<td><input value="${row.pl_dx}"></td>
+<td><input value="${row.lq_pc}"></td>
+<td><input value="${row.colours}"></td>
+<td><input type="number" value="${row.qty}"></td>
+<td><input value="${row.units}"></td>
+<td><input value="${row.box||''}"></td>
+<td><input value="${row.stc||''}"></td>
+<td><input value="${row.trims||''}"></td>
+`;
+
+tbody.appendChild(tr);
+});
+
+});
+
+function updateVoucher(){
+
+let items=[];
+let rows=document.querySelectorAll("#itemBody tr");
+
+rows.forEach(row=>{
+let inputs=row.querySelectorAll("input");
+
+items.push({
+model_name:inputs[0].value,
+pl_dx:inputs[1].value,
+lq_pc:inputs[2].value,
+colours:inputs[3].value,
+qty:inputs[4].value,
+units:inputs[5].value,
+box:inputs[6].value,
+stc:inputs[7].value,
+trims:inputs[8].value
+});
+});
+
+fetch(`/api/update_blade_voucher/${voucherNo}`,{
+method:"PUT",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({
+party_name:document.getElementById("party_name").value,
+received_date:document.getElementById("received_date").value,
+delivery_date:document.getElementById("delivery_date").value,
+items:items
+})
+})
+.then(res=>res.json())
+.then(result=>{
+alert("Updated successfully");
+window.location.href="blade_packing.html";
+});
+}
+
+function goBack(){
+window.location.href="blade_packing.html";
+}
+
+</script>
+
+</body>
+</html>

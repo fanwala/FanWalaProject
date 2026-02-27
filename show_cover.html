@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Show Cover Vouchers</title>
+
+<style>
+
+body{
+margin:0;
+font-family:Arial;
+background:#f5f5f5;
+}
+
+/* Sidebar */
+
+.sidebar{
+width:260px;
+height:100vh;
+background:#b3e5fc;
+position:fixed;
+left:0;
+top:0;
+padding-top:20px;
+}
+
+.menu-item{
+padding:12px 20px;
+font-weight:bold;
+cursor:pointer;
+}
+
+.menu-item:hover{
+background:#81d4fa;
+}
+
+/* Content */
+
+.content{
+margin-left:270px;
+padding:25px;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-bottom:30px;
+background:white;
+}
+
+th,td{
+border:1px solid #ccc;
+padding:8px;
+text-align:center;
+}
+
+.voucher-header{
+background:#eee;
+font-weight:bold;
+}
+
+button{
+padding:6px 12px;
+border:none;
+cursor:pointer;
+font-weight:bold;
+}
+
+.edit-btn{
+background:#4caf50;
+color:white;
+margin-left:10px;
+}
+
+.delete-btn{
+background:#f44336;
+color:white;
+margin-left:10px;
+}
+
+.total-row{
+background:#f7f7f7;
+font-weight:bold;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+<div class="menu-item">ORDERS</div>
+<div class="menu-item" onclick="location='add_cover.html'">Add Cover</div>
+<div class="menu-item" onclick="location='show_cover.html'">Show Cover</div>
+</div>
+
+<div class="content">
+
+    <button onclick="openReportModal()" style="background:#673ab7;color:white;padding:10px 20px;border:none;font-weight:bold;margin-bottom:15px">
+        Report
+        </button>
+
+
+<h2>Cover Vouchers</h2>
+
+
+
+<div id="reportContainer"></div>
+
+</div>
+
+
+<button onclick="openReportModal()" 
+style="background:#673ab7;color:white;padding:10px 18px;border:none;font-weight:bold;margin-bottom:15px">
+Report
+</button>
+
+<div id="reportModal" 
+style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#00000080">
+
+<div style="background:white;width:350px;padding:20px;margin:150px auto">
+
+<h3>Cover Report</h3>
+
+<label>From Date</label>
+<input type="date" id="fromDate" style="width:100%">
+
+<label>To Date</label>
+<input type="date" id="toDate" style="width:100%;margin-bottom:15px">
+
+<button onclick="createReport()" 
+style="background:#4caf50;color:white;padding:8px 15px;border:none">
+Create
+</button>
+
+<button onclick="closeReportModal()" 
+style="background:#f44336;color:white;padding:8px 15px;border:none">
+Close
+</button>
+
+</div>
+
+
+<script>
+
+/* Load vouchers */
+
+fetch('/api/show_covers')
+.then(res=>res.json())
+.then(data=>{
+renderVoucherWise(data)
+})
+
+function renderVoucherWise(data){
+
+const container=document.getElementById("reportContainer")
+container.innerHTML=""
+
+let currentVoucher=null
+let totalQty=0
+let table=null
+let tbody=null
+
+data.forEach(row=>{
+
+/* New Voucher */
+
+if(currentVoucher!==row.id){
+
+/* Close previous table */
+
+if(tbody){
+
+const tr=document.createElement("tr")
+
+tr.className="total-row"
+
+tr.innerHTML=`
+<td colspan="4">Total</td>
+<td>${totalQty}</td>
+<td></td>
+`
+
+tbody.appendChild(tr)
+
+}
+
+/* Reset */
+
+currentVoucher=row.id
+totalQty=0
+
+table=document.createElement("table")
+
+/* Voucher header */
+
+const header=document.createElement("tr")
+header.className="voucher-header"
+
+header.innerHTML=`
+<td colspan="6">
+
+Voucher #${row.id}
+ | Received: ${row.received_date}
+ | Delivery: ${row.delivery_date}
+ | Party: ${row.party_name}
+
+<button class="edit-btn" onclick="editVoucher(${row.id})">
+Edit
+</button>
+
+<button class="delete-btn" onclick="deleteVoucher(${row.id})">
+Delete
+</button>
+
+</td>
+`
+
+table.appendChild(header)
+
+/* Column header */
+
+const column=document.createElement("tr")
+
+column.innerHTML=`
+<th>Model</th>
+<th>PL/DX</th>
+<th>LQ/PC</th>
+<th>Colour</th>
+<th>Qty</th>
+<th>Units</th>
+`
+
+table.appendChild(column)
+
+tbody=document.createElement("tbody")
+table.appendChild(tbody)
+
+container.appendChild(table)
+
+}
+
+/* Row */
+
+const tr=document.createElement("tr")
+
+tr.innerHTML=`
+<td>${row.model_name}</td>
+<td>${row.pl_dx}</td>
+<td>${row.lq_pc}</td>
+<td>${row.colours}</td>
+<td>${row.qty}</td>
+<td>${row.units}</td>
+`
+
+tbody.appendChild(tr)
+
+totalQty+=Number(row.qty)
+
+})
+
+/* Last voucher total */
+
+if(tbody){
+
+const tr=document.createElement("tr")
+
+tr.className="total-row"
+
+tr.innerHTML=`
+<td colspan="4">Total</td>
+<td>${totalQty}</td>
+<td></td>
+`
+
+tbody.appendChild(tr)
+
+}
+
+}
+
+/* Edit */
+
+function editVoucher(id){
+window.location="edit_cover.html?id="+id
+}
+
+/* Delete */
+
+function deleteVoucher(id){
+
+if(!confirm("Delete this voucher?")) return
+
+fetch('/api/delete_cover/'+id,{
+method:"DELETE"
+})
+.then(()=>location.reload())
+
+}
+
+function openReportModal(){
+document.getElementById("reportModal").style.display="block"
+}
+
+function closeReportModal(){
+document.getElementById("reportModal").style.display="none"
+}
+
+function createReport(){
+
+const from=document.getElementById("fromDate").value
+const to=document.getElementById("toDate").value
+
+if(!from || !to){
+alert("Select date range")
+return
+}
+
+window.open(`cover_report.html?from=${from}&to=${to}`)
+
+}
+
+</script>
+
+</body>
+</html>

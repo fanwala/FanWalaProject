@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Cover Report</title>
+
+<style>
+body{font-family:Arial;margin:20px}
+table{width:100%;border-collapse:collapse;margin-bottom:25px}
+th,td{border:1px solid #ccc;padding:6px;text-align:center}
+.voucher{background:#eee;font-weight:bold}
+.total{background:#f7f7f7;font-weight:bold}
+button{padding:8px 12px;border:none;font-weight:bold;margin-right:8px}
+</style>
+
+</head>
+<body>
+
+<h2>Cover Report</h2>
+
+<button onclick="window.print()" style="background:#4caf50;color:white">Print</button>
+<button onclick="exportExcel()" style="background:#2196f3;color:white">Export to Excel</button>
+
+<br><br>
+
+<div id="report"></div>
+
+<script>
+
+const params=new URLSearchParams(location.search)
+const from=params.get("from")
+const to=params.get("to")
+
+fetch(`/api/cover_report?from=${from}&to=${to}`)
+.then(res=>res.json())
+.then(data=>renderReport(data))
+
+function renderReport(data){
+
+const container=document.getElementById("report")
+
+let currentVoucher=null
+let totalQty=0
+let html=""
+let table=""
+
+data.forEach(row=>{
+
+if(currentVoucher!==row.id){
+
+if(currentVoucher!==null){
+
+table+=`
+<tr class="total">
+<td colspan="4">Total</td>
+<td>${totalQty}</td>
+<td></td>
+</tr>
+</table>
+<br>
+`
+
+html+=table
+
+}
+
+currentVoucher=row.id
+totalQty=0
+
+table=`
+<table>
+
+<tr class="voucher">
+<td colspan="6">
+Voucher #${row.id} |
+Received: ${row.received_date} |
+Delivery: ${row.delivery_date} |
+Party: ${row.party_name}
+</td>
+</tr>
+
+<tr>
+<th>Model</th>
+<th>PL/DX</th>
+<th>LQ/PC</th>
+<th>Colour</th>
+<th>Qty</th>
+<th>Units</th>
+</tr>
+`
+
+}
+
+table+=`
+<tr>
+<td>${row.model_name}</td>
+<td>${row.pl_dx}</td>
+<td>${row.lq_pc}</td>
+<td>${row.colours}</td>
+<td>${row.qty}</td>
+<td>${row.units}</td>
+</tr>
+`
+
+totalQty+=Number(row.qty)
+
+})
+
+if(currentVoucher!==null){
+
+table+=`
+<tr class="total">
+<td colspan="4">Total</td>
+<td>${totalQty}</td>
+<td></td>
+</tr>
+</table>
+`
+
+html+=table
+
+}
+
+container.innerHTML=html
+
+}
+
+function exportExcel(){
+
+const html=document.getElementById("report").outerHTML
+
+const blob=new Blob([html],{type:"application/vnd.ms-excel"})
+
+const link=document.createElement("a")
+link.href=URL.createObjectURL(blob)
+link.download="cover_report.xls"
+link.click()
+
+}
+
+</script>
+
+</body>
+</html>

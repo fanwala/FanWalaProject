@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Add Cover Order</title>
+
+<style>
+body{
+margin:0;
+font-family:Arial;
+background:#f4f4f4;
+}
+
+.sidebar{
+width:260px;
+height:100vh;
+background:#b3e5fc;
+position:fixed;
+left:0;
+top:0;
+padding-top:20px;
+}
+
+.menu-item{
+padding:12px 20px;
+cursor:pointer;
+font-weight:bold;
+}
+
+.menu-item:hover{
+background:#81d4fa;
+}
+
+.content{
+margin-left:270px;
+padding:25px;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+background:white;
+margin-top:15px;
+}
+
+th,td{
+border:1px solid #ccc;
+padding:8px;
+text-align:center;
+}
+
+th{
+background:#f1f1f1;
+}
+
+input,select{
+padding:6px;
+width:95%;
+}
+
+button{
+padding:8px 15px;
+font-weight:bold;
+cursor:pointer;
+margin-top:10px;
+}
+
+.add-btn{
+background:#4caf50;
+color:white;
+border:none;
+}
+
+.save-btn{
+background:#2196f3;
+color:white;
+border:none;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+<div class="menu-item">ORDERS</div>
+<div class="menu-item" onclick="window.location='add_cover.html'">Add Cover</div>
+<div class="menu-item" onclick="window.location='show_cover.html'">Show Cover</div>
+</div>
+
+<div class="content">
+
+<h2>Add Cover Order</h2>
+
+<br>
+
+<label>Received Date:</label>
+<input type="date" id="received_date">
+
+<label>Delivery Date:</label>
+<input type="date" id="delivery_date">
+
+<label>Party:</label>
+<select id="party_id"></select>
+
+<table id="itemsTable">
+<thead>
+<tr>
+<th>Model</th>
+<th>PL/DX</th>
+<th>LQ/PC</th>
+<th>Colours</th>
+<th>Qty</th>
+<th>Units</th>
+<th>Remove</th>
+</tr>
+</thead>
+
+<tbody></tbody>
+
+<tfoot>
+<tr style="font-weight:bold;background:#f1f1f1">
+<td colspan="4">TOTAL</td>
+<td id="totalQty">0</td>
+<td id="totalUnits"></td>
+<td></td>
+</tr>
+</tfoot>
+</table>
+
+<button class="add-btn" onclick="addRow()">Add Row</button>
+<button class="save-btn" onclick="saveCover()">Save</button>
+
+</div>
+
+<script>
+
+let modelList = [];
+
+async function loadParties(){
+const res = await fetch('/api/get_parties');
+const data = await res.json();
+
+const partySelect = document.getElementById("party_id");
+partySelect.innerHTML = "";
+
+data.forEach(p=>{
+partySelect.innerHTML += `<option value="${p.id}">${p.party_name}</option>`;
+});
+}
+
+async function loadModels(){
+const res = await fetch('/api/get_models');
+modelList = await res.json();
+addRow();
+}
+
+function addRow(){
+
+const tbody = document.querySelector("#itemsTable tbody");
+
+let modelOptions = "";
+modelList.forEach(m=>{
+modelOptions += `<option value="${m.id}">${m.model_name}</option>`;
+});
+
+const row = document.createElement("tr");
+
+row.innerHTML = `
+<td>
+<select class="model_id">
+${modelOptions}
+</select>
+</td>
+
+<td>
+<select class="pl_dx">
+<option value="PL">PL</option>
+<option value="DX">DX</option>
+</select>
+</td>
+
+<td>
+<select class="lq_pc">
+<option value="LQ">LQ</option>
+<option value="PC">PC</option>
+</select>
+</td>
+
+<td>
+<input type="text" class="colours">
+</td>
+
+<td>
+<input type="number" class="qty" oninput="qtyChanged(this)">
+</td>
+
+<td>
+<select class="units" onchange="calculateTotal()">
+<option value="Nos">Nos</option>
+<option value="Sets">Sets</option>
+</select>
+</td>
+
+<td>
+<button onclick="removeRow(this)">X</button>
+</td>
+`;
+
+tbody.appendChild(row);
+}
+
+function qtyChanged(input){
+
+calculateTotal();
+
+const row = input.closest("tr");
+const tbody = document.querySelector("#itemsTable tbody");
+
+if(row === tbody.lastElementChild && input.value !== ""){
+addRow();
+}
+
+}
+
+function removeRow(btn){
+btn.closest("tr").remove();
+calculateTotal();
+}
+
+function calculateTotal(){
+
+const rows = document.querySelectorAll("#itemsTable tbody tr");
+
+let total = 0;
+let units = "";
+
+rows.forEach(row=>{
+
+const qty = parseFloat(row.querySelector(".qty").value) || 0;
+const unit = row.querySelector(".units").value;
+
+if(qty > 0){
+
+total += qty;
+
+if(units === ""){
+units = unit;
+}
+
+}
+
+});
+
+document.getElementById("totalQty").innerText = total;
+document.getElementById("totalUnits").innerText = units;
+
+}
+
+async function saveCover(){
+
+const received_date = document.getElementById("received_date").value;
+const delivery_date = document.getElementById("delivery_date").value;
+const party_id = document.getElementById("party_id").value;
+
+const rows = document.querySelectorAll("#itemsTable tbody tr");
+
+let items = [];
+
+rows.forEach(row=>{
+
+const item = {
+model_id: row.querySelector(".model_id").value,
+pl_dx: row.querySelector(".pl_dx").value,
+lq_pc: row.querySelector(".lq_pc").value,
+colours: row.querySelector(".colours").value,
+qty: row.querySelector(".qty").value,
+units: row.querySelector(".units").value
+};
+
+if(item.qty && item.qty > 0){
+items.push(item);
+}
+
+});
+
+if(items.length === 0){
+alert("Please enter at least one item.");
+return;
+}
+
+const response = await fetch('/api/save_cover',{
+method:"POST",
+headers:{ "Content-Type":"application/json" },
+body: JSON.stringify({
+received_date,
+delivery_date,
+party_id,
+items
+})
+});
+
+const result = await response.json();
+
+alert(result.message || "Saved Successfully");
+
+location.reload();
+
+}
+
+loadParties();
+loadModels();
+
+</script>
+
+</body>
+</html>

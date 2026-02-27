@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Edit Cover Voucher</title>
+
+<style>
+body{margin:0;font-family:Arial;background:#f5f5f5}
+.sidebar{width:260px;height:100vh;background:#b3e5fc;position:fixed;left:0;top:0;padding-top:20px}
+.menu-item{padding:12px 20px;font-weight:bold;cursor:pointer}
+.menu-item:hover{background:#81d4fa}
+.content{margin-left:270px;padding:25px}
+table{width:100%;border-collapse:collapse;background:white;margin-top:20px}
+th,td{border:1px solid #ccc;padding:8px;text-align:center}
+input,select{width:100%;padding:6px}
+button{padding:8px 14px;border:none;font-weight:bold;cursor:pointer}
+.save-btn{background:#4caf50;color:white}
+.del-btn{background:#f44336;color:white}
+
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+<div class="menu-item">ORDERS</div>
+<div class="menu-item" onclick="location='add_cover.html'">Add Cover</div>
+<div class="menu-item" onclick="location='show_cover.html'">Show Cover</div>
+</div>
+
+<div class="content">
+
+<h2>Edit Cover Voucher</h2>
+
+<div style="display:flex;gap:20px">
+
+<div>
+<label>Received Date</label>
+<input type="date" id="received_date">
+</div>
+
+<div>
+<label>Delivery Date</label>
+<input type="date" id="delivery_date">
+</div>
+
+<div>
+<label>Party</label>
+<select id="party"></select>
+</div>
+
+</div>
+
+<table id="itemsTable">
+<thead>
+<tr>
+<th>Model</th>
+<th>PL/DX</th>
+<th>LQ/PC</th>
+<th>Colour</th>
+<th>Qty</th>
+<th>Units</th>
+
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<br>
+
+
+<button onclick="printVoucher()" style="background:#4caf50;color:white;padding:10px 18px;border:none;font-weight:bold;">
+Print
+</button>
+
+<button onclick="exportExcel()" style="background:#2196f3;color:white;padding:10px 18px;border:none;font-weight:bold;">
+Export to Excel
+</button>
+
+<br>
+<div style="margin-top:20px"></div>
+<button class="save-btn" onclick="updateVoucher()">Update Voucher</button>
+
+</div>
+
+<script>
+
+const id=new URLSearchParams(location.search).get("id")
+
+let models=[],parties=[]
+
+async function loadDropdowns(){
+
+models=await fetch('/api/get_models').then(r=>r.json())
+parties=await fetch('/api/get_parties').then(r=>r.json())
+
+const p=document.getElementById("party")
+parties.forEach(x=>{
+p.innerHTML+=`<option value="${x.id}">${x.party_name}</option>`
+})
+
+}
+
+function createRow(data){
+
+const tbody=document.querySelector("#itemsTable tbody")
+
+const tr=document.createElement("tr")
+
+/* build dropdown HTML */
+
+const modelOptions=models.map(m=>
+`<option value="${m.id}">${m.model_name}</option>`
+).join("")
+
+tr.innerHTML=`
+
+<td><select class="model">${modelOptions}</select></td>
+
+<td><select class="pl">
+<option value="PL">PL</option>
+<option value="DX">DX</option>
+</select></td>
+
+<td><select class="lq">
+<option value="LQ">LQ</option>
+<option value="PC">PC</option>
+</select></td>
+
+<td><input class="colours"></td>
+<td><input type="number" class="qty"></td>
+<td><input class="units"></td>
+
+
+
+`
+
+tbody.appendChild(tr)
+
+/* assign values */
+
+tr.querySelector(".model").value=data.model_id
+tr.querySelector(".pl").value=data.pl_dx
+tr.querySelector(".lq").value=data.lq_pc
+
+tr.querySelector(".colours").value=data.colours
+tr.querySelector(".qty").value=data.qty
+tr.querySelector(".units").value=data.units
+
+}
+
+async function loadVoucher(){
+
+const data=await fetch('/api/show_cover_details/'+id).then(r=>r.json())
+
+if(!data.length){
+alert("Voucher not found")
+return
+}
+
+received_date.value=data[0].received_date ? data[0].received_date.split('T')[0].split(' ')[0] : ''
+delivery_date.value=data[0].delivery_date ? data[0].delivery_date.split('T')[0].split(' ')[0] : ''
+party.value=data[0].party_id
+
+data.forEach(d=>createRow(d))
+
+}
+
+async function updateVoucher(){
+
+const rows=[...document.querySelectorAll("#itemsTable tbody tr")]
+
+const items=rows.map(r=>({
+
+model_id:r.querySelector(".model").value,
+pl_dx:r.querySelector(".pl").value,
+lq_pc:r.querySelector(".lq").value,
+colours:r.querySelector(".colours").value,
+qty:r.querySelector(".qty").value,
+units:r.querySelector(".units").value
+
+}))
+
+const body={
+received_date:received_date.value,
+delivery_date:delivery_date.value,
+party_id:party.value,
+items
+}
+
+await fetch('/api/update_cover/'+id,{
+method:"PUT",
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify(body)
+})
+
+alert("Voucher Updated")
+location="show_cover.html"
+
+}
+
+(async ()=>{
+await loadDropdowns()
+await loadVoucher()
+})()
+
+function printVoucher(){
+
+const table=document.getElementById("itemsTable").outerHTML
+
+const win=window.open("","","width=900,height=700")
+
+win.document.write("<h2>Cover Voucher</h2>")
+win.document.write(table)
+
+win.print()
+
+}
+
+function exportExcel(){
+
+const rows=document.querySelectorAll("#itemsTable tbody tr")
+
+if(rows.length===0){
+alert("No data to export")
+return
+}
+
+let table="<table border='1'>"
+
+table+="<tr>"
+table+="<th>Model</th>"
+table+="<th>PL/DX</th>"
+table+="<th>LQ/PC</th>"
+table+="<th>Colour</th>"
+table+="<th>Qty</th>"
+table+="<th>Units</th>"
+table+="</tr>"
+
+rows.forEach(r=>{
+
+const model=r.querySelector(".model").selectedOptions[0].text
+const pl=r.querySelector(".pl").value
+const lq=r.querySelector(".lq").value
+const colour=r.querySelector(".colours").value
+const qty=r.querySelector(".qty").value
+const units=r.querySelector(".units").value
+
+table+=`<tr>
+<td>${model}</td>
+<td>${pl}</td>
+<td>${lq}</td>
+<td>${colour}</td>
+<td>${qty}</td>
+<td>${units}</td>
+</tr>`
+
+})
+
+table+="</table>"
+
+const blob=new Blob([table],{
+type:"application/vnd.ms-excel"
+})
+
+const link=document.createElement("a")
+link.href=URL.createObjectURL(blob)
+link.download="cover_voucher.xls"
+link.click()
+
+}
+</script>
+
+</body>
+</html>
